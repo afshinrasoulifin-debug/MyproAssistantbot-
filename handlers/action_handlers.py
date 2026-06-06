@@ -156,7 +156,7 @@ async def _generate_image(prompt: str, style_prefix: str = "") -> tuple[bytes | 
     
     except asyncio.TimeoutError:
         return None, "تایم‌اوت — لطفاً دوباره تلاش کن"
-    except Exception as e:
+    except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
         logger.error("Image generation error: %s", e)
         return None, f"خطا: {str(e)[:100]}"
 
@@ -252,11 +252,11 @@ async def _handle_text_action(message: Message, action: str, text: str) -> None:
             for chunk in chunks:
                 try:
                     await safe_reply(message, chunk)
-                except:
+                except Exception:
                     await message.answer(chunk[:4000], parse_mode=None)
         else:
             await message.answer("⚠️ پاسخی دریافت نشد. دوباره تلاش کن.")
-    except Exception as e:
+    except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
         logger.error("Text AI error for %s: %s", action, e)
         await safe_edit_text(status, f"❌ خطا: {str(e)[:100]}")
 
@@ -295,11 +295,11 @@ async def _handle_search_action(message: Message, action: str, text: str) -> Non
             for chunk in chunks:
                 try:
                     await safe_reply(message, chunk)
-                except:
+                except Exception:
                     await message.answer(chunk[:4000], parse_mode=None)
         else:
             await message.answer("⚠️ نتیجه‌ای یافت نشد.")
-    except Exception as e:
+    except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
         logger.error("Search error for %s: %s", action, e)
         await safe_edit_text(status, f"❌ خطا: {str(e)[:100]}")
 
@@ -354,11 +354,11 @@ async def handle_action_button(callback: CallbackQuery) -> None:
                     for chunk in chunks:
                         try:
                             await callback.message.answer(chunk, parse_mode="Markdown")
-                        except:
+                        except Exception:
                             await callback.message.answer(chunk[:4000], parse_mode=None)
                 else:
                     await callback.message.answer("⚠️ پاسخی دریافت نشد.")
-            except Exception as e:
+            except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
                 await callback.message.answer(f"❌ خطا: {str(e)[:100]}")
             return
         
@@ -392,11 +392,11 @@ async def handle_action_button(callback: CallbackQuery) -> None:
                     for chunk in chunks:
                         try:
                             await callback.message.answer(chunk, parse_mode="Markdown")
-                        except:
+                        except Exception:
                             await callback.message.answer(chunk[:4000], parse_mode=None)
                 else:
                     await callback.message.answer("⚠️ نتیجه‌ای یافت نشد.")
-            except Exception as e:
+            except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
                 await callback.message.answer(f"❌ خطا: {str(e)[:100]}")
             return
         
@@ -477,16 +477,16 @@ async def handle_pending_action(message: Message) -> None:
                 answer = await g4f_chat(user_id=uid, text=text, timeout=25)
                 try:
                     await status.delete()
-                except:
+                except Exception:
                     pass
                 if answer:
                     chunks = split_for_telegram(answer)
                     for chunk in chunks:
                         try:
                             await safe_reply(message, chunk)
-                        except:
+                        except Exception:
                             await message.answer(chunk[:4000], parse_mode=None)
-            except Exception as e:
+            except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
                 await safe_edit_text(status, f"❌ خطا: {str(e)[:100]}")
     else:
         # Unknown type — treat as general AI
@@ -496,5 +496,5 @@ async def handle_pending_action(message: Message) -> None:
             answer = await g4f_chat(user_id=uid, text=text, timeout=25)
             if answer:
                 await safe_reply(message, answer)
-        except Exception as e:
+        except (httpx.HTTPError, asyncio.TimeoutError, ValueError, OSError) as e:
             await message.answer(f"❌ {str(e)[:100]}")
