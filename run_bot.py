@@ -309,6 +309,46 @@ async def main():
                 await safe_edit_text(status, f"❌ خطا: {str(e)[:100]}")
             return
         
+        # ── Image request detection ──
+        _IMG_KEYWORDS = [
+            "عکس", "تصویر", "لوگو", "رندر", "بنر", "پوستر", "طراحی",
+            "نقاشی", "اینفوگرافیک", "آیکون", "کاور", "بساز", "generate",
+            "image", "logo", "render", "design", "draw", "photo", "picture",
+            "banner", "poster", "icon", "illustration",
+        ]
+        _IMG_VERBS = ["بساز", "بده", "بکش", "طراحی کن", "درست کن", "generate", "create", "make", "draw"]
+        
+        text_lower = text.lower()
+        has_img_kw = any(kw in text_lower for kw in _IMG_KEYWORDS)
+        has_img_verb = any(v in text_lower for v in _IMG_VERBS)
+        
+        if has_img_kw and has_img_verb:
+            await message.bot.send_chat_action(
+                chat_id=message.chat.id,
+                action=ChatAction.UPLOAD_PHOTO,
+            )
+            status = await message.answer("🎨 در حال ساخت تصویر...")
+            
+            try:
+                from handlers.action_handlers import _generate_image
+                img_bytes, error = await _generate_image(text)
+                
+                if img_bytes:
+                    try: await status.delete()
+                    except: pass
+                    from aiogram.types import BufferedInputFile
+                    photo = BufferedInputFile(img_bytes, filename="arki_image.png")
+                    await message.answer_photo(
+                        photo=photo,
+                        caption=f"🎨 {text[:200]}",
+                    )
+                else:
+                    await safe_edit_text(status, f"❌ خطا در ساخت تصویر: {error or 'ناشناخته'}")
+            except Exception as e:
+                logger.error("Image gen in chat: %s", e)
+                await safe_edit_text(status, f"❌ خطا: {str(e)[:100]}")
+            return
+
         # ── Normal AI chat ──
         await message.bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
         status = await message.answer("🧠 در حال تفکر...")
