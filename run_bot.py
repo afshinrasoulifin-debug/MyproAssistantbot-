@@ -331,7 +331,43 @@ async def main():
             
             try:
                 from handlers.action_handlers import _generate_image
-                img_bytes, error = await _generate_image(text)
+                from arki_project.utils.g4f_provider import get_history
+                
+                # ── Build context-aware English prompt using chat history ──
+                history = get_history(uid)
+                context_lines = []
+                for msg in history[-6:]:  # last 6 messages for context
+                    role = msg.get("role", "")
+                    content = msg.get("content", "")[:200]
+                    context_lines.append(f"{role}: {content}")
+                context_str = "\n".join(context_lines)
+                
+                prompt_request = (
+                    f"Based on this conversation:\n{context_str}\n"
+                    f"Current request: {text}\n\n"
+                    "Write a detailed English image generation prompt (1-2 sentences) "
+                    "that captures exactly what the user wants. "
+                    "Focus on visual details: style, colors, composition, subject. "
+                    "Output ONLY the English prompt, nothing else."
+                )
+                
+                # Use g4f to create smart English prompt
+                from arki_project.utils.g4f_provider import chat as ai_chat
+                eng_prompt = await ai_chat(
+                    user_id=0,  # use temp ID so it doesn't pollute user history
+                    text=prompt_request,
+                    timeout=15,
+                )
+                
+                # Fallback if prompt generation failed
+                if not eng_prompt or len(eng_prompt) < 5 or "خطا" in eng_prompt:
+                    eng_prompt = text
+                
+                logger.info("Image prompt: %s → %s", text[:50], eng_prompt[:100])
+                
+                await safe_edit_text(status, f"🎨 در حال رندر: {eng_prompt[:80]}...")
+                
+                img_bytes, error = await _generate_image(eng_prompt)
                 
                 if img_bytes:
                     try: await status.delete()
